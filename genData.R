@@ -39,7 +39,8 @@ GenData <- function(no.classes, param.vector, save.csv = TRUE, save.pdf = TRUE){
     if(save.pdf == TRUE)  {
         data$type <- as.factor(data$type)
         pdf("plot.pdf", width=6, height=5)
-        print(PlotGraph(data = data, title = "Cyclones types based spiral distance", size = 0.8))
+        print(PlotGraph(data = data, title = "Cyclones types based spiral distance", 
+                        size = 0.8, x.label = "Demeaned diameter", y.label = "Demeaned diameter"))
         dev.off()
     }
     
@@ -80,9 +81,11 @@ GetSpiral <- function(n, a, b, theta, step, disturbance , cov.factor, class.name
 }
 
 
-PlotGraph <- function(data, title, size = 0.8){
+PlotGraph <- function(data, title = "", x.label = "", y.label = "", size = 0.8){
     p <- ggplot(data = data, aes(x = x, y= y, col = type)) +
         geom_point(size = size) +
+        scale_x_continuous(name = x.label) +
+        scale_y_continuous(name = y.label) +
         ggtitle(title)
 }
 
@@ -95,7 +98,3 @@ param.vector <- list(class1 = list(n = 1000, a = 10, b = 20, theta = pi/6, step 
                                 cov.factor = 6, class.name = "C"))
 
 data <- GenData(no.classes = 3, param.vector = param.vector)
-
-
-PlotGraph()
-

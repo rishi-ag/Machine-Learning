@@ -2,18 +2,11 @@ library(ggplot2)
 library(mvtnorm)
 library(assertthat)
 
-n = 1000
-a = 10
-b = 20
-theta = pi/6
-step = 0.03
-disturbance = 5
-cov.factor = 6
-
-
 
 GenData <- function(no.classes, param.vector, save.csv = TRUE, save.pdf = TRUE){
     #-------------------------------------------------------------
+    #Function returns dataset characterised by parameters passed (see GetSpiral).
+    #Also saves csv file of data and a plot of data if repective flags set to TRUE
     
     #check that no.classes and length of parameter list is same
     assert_that(no.classes == length(param.vector))
@@ -21,7 +14,7 @@ GenData <- function(no.classes, param.vector, save.csv = TRUE, save.pdf = TRUE){
     #generate data
     data <- data.frame(x = as.numeric(), y = numeric(), type = numeric())
     
-    #generate data for each class based on the parameters specified (see GetSpiral)
+    #generate data for each class based on the parameters specified 
     for(i in 1:no.classes) {
         temp <- GetSpiral(param.vector[[i]]$n, param.vector[[i]]$a, param.vector[[i]]$b,
                           param.vector[[i]]$theta, param.vector[[i]]$step, param.vector[[i]]$disturbance,
@@ -48,6 +41,7 @@ GenData <- function(no.classes, param.vector, save.csv = TRUE, save.pdf = TRUE){
 }
 
 GetSpiral <- function(n, a, b, theta, step, disturbance , cov.factor, class.name) {
+    
     #function returns data that follows a spiral using the polar coordinates equation polar = a + b * theta (see below)
     #1.   if n is not divisible disturbances then points returned will be more than n
     #2.   generally higher the value of parameter b, more the number of perfectly non linearly seperatable 
@@ -88,6 +82,9 @@ PlotGraph <- function(data, title = "", x.label = "", y.label = "", size = 0.8){
         scale_y_continuous(name = y.label) +
         ggtitle(title)
 }
+
+#-------------------------------------------------------------
+#-------------------------------------------------------------
 
 
 param.vector <- list(class1 = list(n = 1000, a = 10, b = 20, theta = pi/6, step = 0.03, disturbance = 3,

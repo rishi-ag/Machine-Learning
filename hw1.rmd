@@ -6,8 +6,13 @@ output: pdf_document
 ---
 
 
-```{r}
-summary(cars)
+```{r global_options, include=FALSE}
+if (!require("knitr")) install.packages("knitr"); library("knitr")
+if (!require("rmarkdown")) install.packages("rmarkdown"); library("rmarkdown")
+if (!require("mvtnorm")) install.packages("mvtnorm"); library("mvtnorm")
+if (!require("ggplot2")) install.packages("ggplot2"); library("ggplot2")
+opts_chunk$set(fig.width=8, fig.height=5, warning=FALSE, message=FALSE, 
+               include=TRUE, echo=TRUE, cache=TRUE, cache.comments=FALSE)
 ```
 
 You can also embed plots, for example:

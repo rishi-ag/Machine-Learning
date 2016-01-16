@@ -21,35 +21,50 @@ GenData <- function(no.classes, param.vector, save.csv = TRUE, save.pdf = TRUE){
     #generate data
     data <- data.frame(x = as.numeric(), y = numeric(), type = numeric())
     
+    #generate data for each class based on the parameters specified (see GetSpiral)
     for(i in 1:no.classes) {
-        temp <- GetSpiral(param.vector[[i]][1], param.vector[[i]][2], param.vector[[i]][3],
-                          param.vector[[i]][4], param.vector[[i]][5], param.vector[[i]][6],
-                          param.vector[[i]][7])
-        temp$type <- rep(i, param.vector[[i]][1])
-            
+        temp <- GetSpiral(param.vector[[i]]$n, param.vector[[i]]$a, param.vector[[i]]$b,
+                          param.vector[[i]]$theta, param.vector[[i]]$step, param.vector[[i]]$disturbance,
+                          param.vector[[i]]$cov.factor, param.vector[[i]]$class.name)
         data <- rbind(data, temp)
         
     }
-    data$type <- as.factor(data$type)
     
-    
-    
-    #import csv is flag raised
+    #import csv if save.csv flag raised
     if(save.csv == TRUE){
         write.csv(data, file = "data.csv", row.names = FALSE)
     }
     
+    #import pdf of plot if save.pdf flag raised
     if(save.pdf == TRUE)  {
-        pdf("plot.pdf", width=5, height=5)
-        print(ggplot(data = data, aes(x = x, y= y, col = type)) + geom_point())
+        data$type <- as.factor(data$type)
+        pdf("plot.pdf", width=6, height=5)
+        print(PlotGraph(data = data, title = "Cyclones types based spiral distance", size = 0.8))
         dev.off()
     }
     
     return(data)
 }
 
-GetSpiral <- function(n, a, b, theta, step, disturbance , cov.factor) {
-    n <- n/disturbance
+GetSpiral <- function(n, a, b, theta, step, disturbance , cov.factor, class.name) {
+    #function returns data that follows a spiral using the polar coordinates equation polar = a + b * theta (see below)
+    #1.   if n is not divisible disturbances then points returned will be more than n
+    #2.   generally higher the value of parameter b, more the number of perfectly non linearly seperatable 
+    #     classes that can be specified
+    #3.   generally higher the value of parameter a, more the distance seperating different classes 
+    #------------------------------------------------------------------------------
+    #parameter space
+    #------------------------------------------------------------------------------
+    #a     = numerical constant in R; controls turn of the spiral
+    #b     = numerical constant in R controls the distance between arms of the spiral
+    #theta = instial angle in radians of the spiral 
+    #step  = successive increase in theta
+    #disturbance = No of points randomly generated using cartesian coordiantes of a given point as mean
+    #cov.factor = factor by which multiplies by the variance covariance matrix of each point
+    #class.name = Name of class
+    #------------------------------------------------------------------------------
+    
+    n <- round(n/disturbance) #change n by a factor of disurbances
     data <- data.frame(x = as.numeric(), y = numeric())
     
     for(i in 0 :(n -1)) {
@@ -60,17 +75,27 @@ GetSpiral <- function(n, a, b, theta, step, disturbance , cov.factor) {
     }
     
     names(data) <- c("x", "y")
+    data$type <- rep(class.name, n)
     data
 }
 
-param.vector <- list(class1 = c(n = 2000, a = 10, b = 30, theta = pi/6, step = 0.03, disturbance = 5,
-                                cov.factor = 10),
-                     class2 = c(n = 2000, a = 30, b = 30, theta = pi/6, step = 0.03, disturbance = 5,
-                                cov.factor = 6),
-                     class3 = c(n = 2000, a = 50, b = 30, theta = pi/6, step = 0.03, disturbance = 5,
-                                cov.factor = 6))
+
+PlotGraph <- function(data, title, size = 0.8){
+    p <- ggplot(data = data, aes(x = x, y= y, col = type)) +
+        geom_point(size = size) +
+        ggtitle(title)
+}
+
+
+param.vector <- list(class1 = list(n = 1000, a = 10, b = 20, theta = pi/6, step = 0.03, disturbance = 3,
+                                cov.factor = 10, class.name = "A"),
+                     class2 = list(n = 1000, a = 50, b = 20, theta = pi/6, step = 0.03, disturbance = 3,
+                                cov.factor = 6, class.name = "B"),
+                     class3 = list(n = 1000, a = 100, b = 20, theta = pi/6, step = 0.03, disturbance = 3,
+                                cov.factor = 6, class.name = "C"))
 
 data <- GenData(no.classes = 3, param.vector = param.vector)
 
 
-ggplot(data = data, aes(x = x, y= y, col = as.factor(type))) + geom_point()
+PlotGraph()
+

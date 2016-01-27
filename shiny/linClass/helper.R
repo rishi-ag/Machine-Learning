@@ -2,10 +2,10 @@
 
 #Create variance covariance matrix
 SigmaXY <- function(rho, sdX, sdY) {
-  covTerm <- rho * sdX * sdY
-  VCmatrix <- matrix(c(sdX^2, covTerm, covTerm, sdY^2), 
-                     2, 2, byrow = TRUE)
-  return(VCmatrix)
+    covTerm <- rho * sdX * sdY
+    VCmatrix <- matrix(c(sdX^2, covTerm, covTerm, sdY^2), 
+                       2, 2, byrow = TRUE)
+    return(VCmatrix)
 }
 
 #Create a Bivariate Normal Distribution
@@ -30,7 +30,7 @@ GenData <- function(param.vector, seed = 5341) {
     dummy <- as.data.frame(model.matrix( ~ class -1 , data = data))
     names(data)[1:2] <- c("x", "y")
     data <- cbind(data, dummy)
-  return(data)
+    return(data)
 }
 
 #classify data using lda
@@ -86,25 +86,4 @@ PlotBoundary <- function(weights,  data){
     
     p
 }
-
-#-------------------------------------------------------------------------------------------
-#Demo
-#------------------------------------------------------------------------------------------
-param.vector <- list(
-    class1 = list(no = 50, rho = -0.7, sd = c(10, 20), mean = c(20, 60), class.name = "Approved"),
-    class2 = list(no = 50, rho = -0.1, sd = c(20, 20), mean = c(40, 80), class.name = "Denied"),
-    class3 = list(no = 50, rho = 0.5, sd = c(15, 12), mean = c(20, 25), class.name = "Undecided")
-)
-
-data <- GenData(param.vector)
-
-prediction <- Classify(data)
-
-#Errors
-confusion <- table(data$class, prediction$prediction)
-confusion <- as.data.frame.matrix(confusion) 
-
-PlotBoundary(prediction$weights, data)
-#Plot the decision boundaries
-
 

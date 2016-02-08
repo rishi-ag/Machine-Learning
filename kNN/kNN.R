@@ -2,6 +2,7 @@ library("assertthat")
 library("mvtnorm")
 library("reshape2")
 library("doParallel")
+library("gridExtra")
 
 
 #--------------------------------------------------------------------------------

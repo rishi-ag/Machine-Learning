@@ -6,6 +6,7 @@ source("genData.R")
 
 #==================================================================
 Entropy <- function(labels){
+  #' calculates entropy given a vector of labels or classes
   N <- length(labels)
   label.counts <- count(labels)$freq
   entropy.vec <- sapply(label.counts, function(count) -(count/N) * log2(count/N))
@@ -22,6 +23,9 @@ Entropy <- function(labels){
 
 #==================================================================
 ExpectedEntropy <- function(parent.labels, children.labels) {
+  #' calculates expected entropy given parent labels and 
+  #' labels of the children resulting from the split
+  
   N <- length(parent.labels)
   expected.entropy <- sum(sapply(children.labels, function(child) (length(child)/ N)* Entropy(child)))
   return(expected.entropy)
@@ -35,7 +39,10 @@ ExpectedEntropy <- function(parent.labels, children.labels) {
 
 #==================================================================
 BestThresholdEntropy <- function(feature, labels, no.thresh = 10, diagnostics = FALSE) {
-  
+  #' breaks continuous feature into specified intervals and 
+  #' calculates information gain on each interval.
+  #' If  diagnostics = FALSE returns best intra feature split
+  #' If diagnostics = TRUE returns a table of information gains 
   
   # create potential thresholds vector
   pot.thresh <- seq(min(feature), max(feature), length.out = (no.thresh + 2))
@@ -44,8 +51,8 @@ BestThresholdEntropy <- function(feature, labels, no.thresh = 10, diagnostics = 
   
   information.gain.vec <- sapply(pot.thresh, 
                                  function(thresh) Entropy(labels) - ExpectedEntropy(labels, 
-                                                                      list(labels[feature > thresh], 
-                                                                           labels[!(feature > thresh)])))
+                                                                                    list(labels[feature > thresh], 
+                                                                                         labels[!(feature > thresh)])))
   
   best.thresh <- pot.thresh[which.max(information.gain.vec)]
   
@@ -65,9 +72,12 @@ BestThresholdEntropy <- function(feature, labels, no.thresh = 10, diagnostics = 
 #BestThresholdEntropy(features[,1], labels, 10, diag = T)
 #==================================================================
 
-ChooseSplit <- function(features, labels, method, diagnostics = FALSE){
+ChooseSplit <- function(features, labels, costFnc, diagnostics = FALSE){
+  #' Uses the method specified to calculate best information gain from all features
+  #' If diagnostics = FALSE returns the best feature and split
+  #' If diagnostics = TRUE returns a table of features and information gain
   
-  if ( (tolower(method) == "entropy") | (method = 1) ) {
+  if ( (tolower(costFnc) == "entropy") | (method = 1) ) {
     information.gain <-  as.data.frame(t(apply(features, 2, function(feature) BestThresholdEntropy(feature, labels))))
   }
   
@@ -85,8 +95,10 @@ ChooseSplit <- function(features, labels, method, diagnostics = FALSE){
 }
 #==================================================================
 
-SplitData <- function(features, labels, rule) {
-  child1 <- features[[rule[1, 4]]] < rule[1, 2] 
+SplitData <- function(features, labels, rule, decision.tree, parent, last.node) {
+  #' slpits data based on rule given and returns a list 
+  #' with rules, predicted label, probabilities
+  child1 <- features[[rule[1, 3]]] < rule[1, 1] 
   child2 <- !child1
   
   features1 <- features[child1,]
@@ -99,72 +111,142 @@ SplitData <- function(features, labels, rule) {
   prob2 <- count(labels2)
   #prob2$freq <- prob2$freq/length(labels2)  
   
-  return(list(prob1 = prob1$freq[which.max(prob1$freq)]/length(labels1),
-              class1 = as.character(prob1$x[which.max(prob1$freq)]),
-              feat1 = features1, 
+  node <- c(last.node + 1, last.node + 2)
+  parent.node <- c(parent, parent)
+  which.child <- c("left", "right")
+  split.feature <- c(rule[1, 3], rule[1, 3])
+  threshold <- c(round(rule[1, 1], 3), round(rule[1, 1], 3))
+  pred.class <- c(as.character(prob1$x[which.max(prob1$freq)]), 
+                  as.character(prob2$x[which.max(prob2$freq)]))
+  class.prob <- c(round(prob1$freq[which.max(prob1$freq)]/length(labels1), 3),
+                  round(prob2$freq[which.max(prob2$freq)]/length(labels2), 3))
+  
+  decision.tree <- rbind(decision.tree, data.frame(node, parent.node, which.child, split.feature,
+                                                   threshold, pred.class, class.prob))
+  
+  return(list(feat1 = features1, 
               lab1 = labels1,
               no.points1 = length(labels1),
-              prob2 = prob2$freq[which.max(prob2$freq)]/length(labels2),
-              class2 = as.character(prob2$x[which.max(prob2$freq)]),
               feat2 = features2, 
               lab2 = labels2,
-              no.points2 = length(labels2)))
+              no.points2 = length(labels2),
+              decision.tree = decision.tree))
 }
 #==================================================================
-BuildCTree <- function(features, labels, depth = 3, min.points = 10){
-  depth.queue <- list()
-  depth.queue[[length(depth.queue) + 1]] <- list(depth = 1, features = features, labels = labels)
+BuildCTree <- function(features, labels, depth = 3, minPoints = 10, parent.node){
+  #' Buils a tree given the depth and minPoints argument
   
-  decision.rules <- data.frame(split = numeric(),
-                               best.thresh = double(),
-                               information.gain = double(),
-                               feature = character())
+  #' depth queue will act as a rough queue to build the tree breadth wise.
+  #' i.e all the leaf nodes will be split firt before moving to teh new depth
+  #' cerated
+  depth.queue <- list()
+  
+  
+  depth.queue[[length(depth.queue) + 1]] <- list(features = features, labels = labels, node = 1)
+  
+  #' stores information to predict based on accepted splits
+  decision.tree <- data.frame(node = numeric(),
+                              parent.node = numeric(),
+                              which.child = character(),
+                              split.feature = character(),
+                              threshold = numeric(),
+                              pred.class = character(),
+                              class.prob = double())
+  
+  
 
-  depth.prob <- data.frame(depth = character(),
-                           prob1 = double(),
-                           class1 = factor(),
-                           no.points1 = numeric(),
-                           prob2 = double(),
-                           class2 = factor(),
-                           no.points2 = numeric())
-  #k = 1
   for (k in 1:depth){
     temp.queue <- list()
-    counter <- 0
+    
     while (length(depth.queue) != 0) {
-      counter <-  counter + 1
-      level <- paste0(as.character(k), letters[counter])
+      
       split <- depth.queue[[1]]
+      
+      if(length(temp.queue) != 0) {
+        last.node <- temp.queue[[length(temp.queue)]]$node
+      } else { 
+        last.node <- depth.queue[[length(depth.queue)]]$node
+      }
+      
+      
+      
+      
       depth.queue[[1]] <- NULL
       
-      decision.rules <- rbind(decision.rules, cbind(level, ChooseSplit(split$features, split$labels, 1, FALSE)))
+      decision.rule <- ChooseSplit(split$features, split$labels, 1, FALSE)
       
-      new.split <- SplitData(split$features, split$labels, decision.rules[nrow(decision.rules),]) 
+      new.split <- SplitData(split$features, 
+                             split$labels, 
+                             decision.rule, 
+                             decision.tree, 
+                             split$node, 
+                             last.node) 
       
-      depth.prob <- rbind(depth.prob, cbind(level,
-                                           round(new.split$prob1, 3),
-                                           new.split$class1,
-                                           new.split$no.points1,
-                                           round(new.split$prob2, 3),
-                                           new.split$class2,
-                                           new.split$no.points2))
+      decision.tree <- new.split$decision.tree
       
-      if(new.split$prob1 != 1 | length(new.split$lab1) > min.points) {
-        temp.queue[[length(temp.queue) + 1]] <- list(depth = k + 1, features = new.split$feat1, labels = new.split$lab1)
+      if(decision.tree$class.prob[length(decision.tree$class.prob) - 1] != 1 | length(new.split$lab1) > minPoints) {
+        temp.queue[[length(temp.queue) + 1]] <- list(features = new.split$feat1, 
+                                                     labels = new.split$lab1, 
+                                                     node = decision.tree$node[length(decision.tree$node) - 1])
       }
       
-      if(new.split$prob2 != 1 | length(new.split$lab2) > min.points) {
-        temp.queue[[length(temp.queue) + 1]] <- list(depth = k + 1, features = new.split$feat2, labels = new.split$lab2)
+      if(decision.tree$class.prob[length(decision.tree$class.prob)] != 1 | length(new.split$lab2) > minPoints) {
+        temp.queue[[length(temp.queue) + 1]] <- list(features = new.split$feat2, 
+                                                     labels = new.split$lab2, 
+                                                     node = decision.tree$node[length(decision.tree$node)])
       }
+      
     }
     
     depth.queue <- c(depth.queue, temp.queue)
   }
   
-  names(depth.prob) <- c("level", "prob.left", "class.left", "no.points.left","prob.right", "class.right", "no.points.right")
+  return(decision.tree)
+}
+
+
+PredictPoint <- function(features, label, tree){
+  parent.present <- TRUE
+  parent <- 1
+  which.child <- NULL
+  prediction <- NULL
+  pred.prob <- NULL
   
-  output <- merge(depth.prob, decision.rules, by.x = "level", by.y = "level")
-  return(output)
+  while(parent.present){
+    feature.name <- unique(as.character(tree$split.feature[tree$parent.node == parent]))
+    threshold <- unique(tree$threshold[tree$parent.node == parent])
+    
+    if(features[[feature.name]] < threshold){
+      which.child <- "left"
+    } else {
+      which.child <- "right"
+    }
+    
+    if(tree[tree$parent.node == parent & tree$which.child == which.child,]$node %in% tree$parent.node ){
+      parent.present <- TRUE
+      parent <- tree[tree$parent.node == parent & tree$which.child == which.child,]$node
+    } else {
+      parent.present <- FALSE
+      prediction <- tree[tree$parent.node == parent & tree$which.child == which.child,]$pred.class
+      pred.prob <- tree[tree$parent.node == parent & tree$which.child == which.child,]$class.prob
+    }
+    
+    
+  }
+  return(c(prediction = as.character(prediction),
+                    probability = pred.prob)
+  )
+}
+
+
+PredictData <- function(features, labels, decision.tree) {
+  
+  data <- cbind(labels, features)
+  
+  as.data.frame(t(apply(data, 1, function(row) PredictPoint(features = row[2:ncol(data)], 
+                                             label = row[1],
+                                             tree = decision.tree))))
+  
 }
 
 #==================================================================
@@ -181,8 +263,13 @@ features <- data[,1:2]
 labels <- data[,3]
 
 
-split <- ChooseSplit(features, labels, 1, FALSE)
+#split <- ChooseSplit(features, labels, 1, FALSE)
 
 
 
-output <- BuildCTree(features, labels, depth = 4, min.points = 10)
+decision.tree <- BuildCTree(features, labels, depth = 4, minPoints = 3)
+
+predictions <- PredictData(features = features, label = labels, decision.tree = decision.tree)
+
+sum(predictions$prediction == labels)/150
+

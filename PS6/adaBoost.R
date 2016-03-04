@@ -28,8 +28,8 @@ get.data <- function(n1 = 100, n2 = 100, mu1, mu2, sd1, sd2, rhoXY, seed = 1000)
 }
 
 
-draw.plot <- function(feat, lab) {
-  data <- data.frame(feat, factor(lab))
+draw.plot <- function(data, lab) {
+  data <- data.frame(data, factor(lab))
   names(data) <- c("X1", "X2", "lab")
   ggplot(data, aes(x = X1, y = X2, fill = lab, color = lab)) +
     geom_point(alpha = 0.5, size = 3) +
@@ -38,11 +38,16 @@ draw.plot <- function(feat, lab) {
 }
 
 
-ada.booster <- function(feat, lab, w, alpha.pred, noTree = 10, 
-                        diagnostics = FALSE, err.rate = c()) {
+ada.booster <- function(data, lab, w, alpha.pred, noTree = 10, 
+                        diagnostics = FALSE, err.rate = c(), depth = 1) {
+  #check inputs
+  assert_that(length(lab) == nrow(data))
+  assert_that(length(lab) == length(w))
+  assert_that(length(lab) == length(alpha.pred))
   
-  tree = rpart(formula = lab~., data = feat, 
-               weights = w, method = "class", control = c(maxdepth = 1) )
+  
+  tree = rpart(formula = lab~., data = data, 
+               weights = w, method = "class", control = c(maxdepth = depth) )
   pred = ifelse(predict(tree, type = "class") == "-1", -1, 1)
   
   epsilon = (function() sum(w * ifelse(pred == lab, 0, 1))) ()
@@ -64,7 +69,7 @@ ada.booster <- function(feat, lab, w, alpha.pred, noTree = 10,
     else return (err.rate)
   }
   else {
-    ada.booster(feat, lab, w, alpha.pred, noTree - 1, diagnostics, err.rate)
+    ada.booster(data, lab, w, alpha.pred, noTree - 1, diagnostics, err.rate, depth)
   }
 }
 
@@ -78,20 +83,21 @@ mu2 <- c(15, 15)
 train <- get.data(1000,1000, mu1, mu2, sd1, sd2, rhoXY, 2500)
 test <- get.data(500,500, mu1, mu2, sd1, sd2, rhoXY, 1200)
 
-train.feat <- train[[1]]
+train.data <- train[[1]]
 train.lab <- train[[2]]
-test.feat <- test[[1]]
+#train.lab <- train.lab[1:(length(train.lab) - 1)]
+test.data <- test[[1]]
 test.lab <- test[[2]]
 
-draw.plot(train.feat, train.lab)
-draw.plot(test.feat, test.lab)
+draw.plot(train.data, train.lab)
+draw.plot(test.data, test.lab)
 
 noTree <- 100
 
 #ADA BOOST
 alpha.pred <- rep(0, length(train.lab))
 w <- rep(1/length(train.lab), length(train.lab))
-ad.err.rates <- ada.booster(train.feat, train.lab, w, alpha.pred, noTree, diagnostics = TRUE)
+ad.err.rates <- ada.booster(train.data, train.lab, w, alpha.pred, noTree, diagnostics = TRUE, depth)
 
 err.df <- data.frame(noTree = 1:noTree, Ada_Boost_Error = ad.err.rates)
 ggplot(err.df, aes(x = noTree, y = Ada_Boost_Error)) + geom_point() + geom_line()
@@ -101,17 +107,17 @@ ggplot(err.df, aes(x = noTree, y = Ada_Boost_Error)) + geom_point() + geom_line(
 #Compare
 alpha.pred <- rep(0, length(train.lab))
 w <- rep(1/length(test.lab), length(test.lab))
-ad.err.rates <- ada.booster(test.feat, test.lab, w, alpha.pred, noTree, diagnostics = TRUE)
+ad.err.rates <- ada.booster(test.data, test.lab, w, alpha.pred, noTree, diagnostics = TRUE)
 
 
 rf.err.rates <- sapply(X = 1:noTree, FUN = function(v) {
-  rf = randomForest(train.feat, train.lab, ntree = v)
-  pred = sign(predict(rf , test.feat, type = "class"))
+  rf = randomForest(train.data, train.lab, ntree = v)
+  pred = sign(predict(rf , test.data, type = "class"))
   sum(pred != test.lab) / length(test.lab)
 })
 
-bag.train <- cbind(lab = factor(train.lab), train.feat)
-bag.test <- cbind(lab = factor(test.lab), test.feat)
+bag.train <- cbind(lab = factor(train.lab), train.data)
+bag.test <- cbind(lab = factor(test.lab), test.data)
 names(bag.train)
 names(bag.test)
 

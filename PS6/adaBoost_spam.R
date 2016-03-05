@@ -31,4 +31,12 @@ test.output <- predict.ada.booster(data = test.feat, labs = test.lab, noTree = n
 #PLOT ERRORS
 err.df <- data.frame(noTree = 1:noTree, train_error = train.output$error, test_error = test.output$error)
 error.melt <- melt(data = err.df, id.vars = 1)
-ggplot(error.melt, aes(x = noTree, y = value, col = variable)) + geom_line()
+plot <- ggplot(error.melt, aes(x = noTree, y = value, col = variable)) + geom_line()
+
+pdf("error_evolution.pdf")
+plot
+dev.off()
+
+dev.copy(png,"error_evolution.png")
+(plot)
+dev.off()

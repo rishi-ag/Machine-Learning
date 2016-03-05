@@ -44,7 +44,7 @@ train.ada.booster <- function(data, lab, w, alpha.pred, noTree = 10,
   }
 }
 
-predict.ada.booster <- function(data, labs, noTree, alpha.vec, depth) {
+predict.ada.booster <- function(data, labs, noTree, alpha.vec, depth, save.result = TRUE) {
   weights = rep(1/nrow(data), nrow(data))
   
   alpha.pred = rep(0, nrow(data))
@@ -66,5 +66,6 @@ predict.ada.booster <- function(data, labs, noTree, alpha.vec, depth) {
     err.rate = c(err.rate, sum(labs != prediction)/length(labs))
   }
   
-  return(list(prediction = prediction, error = err.rate))
+  if(save.result) write.csv(x = prediction, file = "prediction.csv")
+  return(list(predLabels = prediction, error = err.rate))
 }
